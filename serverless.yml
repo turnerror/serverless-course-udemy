@@ -1,8 +1,8 @@
-service:
-  name: serverless-course-udemy
+service: serverless-course-udemy
 
 plugins:
   - serverless-bundle
+  - serverless-lift
   - serverless-pseudo-parameters
 
 provider:
@@ -12,6 +12,14 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: eu-west-1
   profile: personal
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action: 
+            - dynamodb:PutItem
+          Resource:
+            - arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/auctions_table
 
 resources:
   Resources:
@@ -26,10 +34,25 @@ resources:
         KeySchema:
           - AttributeName: id
             KeyType: HASH
+  
+constructs:
+  NewAuctionItemQueue:
+    type: queue
+    worker:
+      handler: src/handlers/createAuction.handler
+  
 functions:
-  createAuction:
-    handler: src/handlers/createAuction.handler
+  newAuction:
+    handler:  src/handlers/newAuction.handler
+    environment:
+      QUEUE_URL: ${construct:NewAuctionItemQueue.queueUrl}
     events:
       - http:
           method: POST
-          path: /auction
+          path: auction
+  dontClick:
+    handler: src/handlers/dontClick.handler
+    events:
+      - http:
+          method: GET
+          path: /dont-click-this-link
