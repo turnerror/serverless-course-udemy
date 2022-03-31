@@ -3,7 +3,8 @@ service: serverless-course-udemy
 plugins:
   - serverless-bundle
   - serverless-lift
-  - serverless-pseudo-parameters
+  - serverless-offline
+  - serverless-offline-sqs
 
 provider:
   name: aws
@@ -19,7 +20,7 @@ provider:
           Action: 
             - dynamodb:PutItem
           Resource:
-            - arn:aws:dynamodb:#{AWS::Region}:#{AWS::AccountId}:table/auctions_table
+            - Fn::GetAtt: [ AuctionsTable, Arn ]
 
 resources:
   Resources:
