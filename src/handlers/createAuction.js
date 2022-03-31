@@ -1,31 +1,27 @@
-import { v4 as uuid } from 'uuid';
 import aws from 'aws-sdk';
 
-async function createAuction(event, context) {
-  console.info('lambda running', { event, context });
-  const dynamodb = new aws.DynamoDB.DocumentClient();
+const sns = new aws.SNS({
+  apiVersion: 'latest',
+  region: 'eu-west-1'
+});
 
-  const entries = [];
-  for (const message of event.Records) {
-    const { title } = JSON.parse(message.body);
-    const now = new Date();
+exports.handler = async function (event, context) {
+  const { title } = JSON.parse(event.body);
+  console.info('received', JSON.stringify({ event, context }));
 
-    const auction = {
-      id: uuid(),
-      title,
-      status: 'OPEN',
-      createdAt: now.toISOString()
-    };
+  const sent = await sns.publish({
+    TopicArn: process.env.TOPIC_ARN,
+    Message: JSON.stringify({
+      title
+    })
+  }).promise();
 
-    entries.push(dynamodb.put({
-      TableName: 'auctions_table',
-      Item: auction
-    }).promise());
-  }
-
-  const result = await Promise.all(entries);
-
-  console.info('Lambda finished running.', { result });
-}
-
-export const handler = createAuction;
+  console.info('end', JSON.stringify({ sent }));
+  return {
+    statusCode: 201,
+    body: JSON.stringify({
+      message: 'Queue item added... i think?',
+      context: sent
+    })
+  };
+};

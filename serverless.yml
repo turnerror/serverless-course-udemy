@@ -16,14 +16,46 @@ provider:
   iam:
     role:
       statements:
-        - Effect: Allow
+        - Effect: Allow # Allows functions to publish NewAuctionTopic
           Action: 
+            - SNS:Publish
+          Resource:
+            - !Ref NewAuctionTopic
+        - Effect: Allow # Allows functions to write to auctions_table
+          Action:
             - dynamodb:PutItem
           Resource:
             - Fn::GetAtt: [ AuctionsTable, Arn ]
 
 resources:
   Resources:
+    NewAuctionTopic:
+        Type: AWS::SNS::Topic
+        Properties:
+          TopicName: NewAuction
+          Subscription:
+            - Protocol: SQS
+              Endpoint: ${construct:NewAuctionQueue.queueArn}
+    # Allows SQS to subscribe to SNS. (not sure if needed tbh)
+    SnsToSqsPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: "Allow SNS publish to SQS"
+              Effect: Allow
+              Principal:
+                Service: "sns.amazonaws.com"
+              Resource:
+                - ${construct:NewAuctionQueue.queueArn}
+              Action: SQS:SendMessage
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref NewAuctionTopic
+        Queues:
+          - ${construct:NewAuctionQueue.queueUrl}
+    # Creates dynamodb table: auctions_table
     AuctionsTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -36,21 +68,31 @@ resources:
           - AttributeName: id
             KeyType: HASH
   
+# Creates SQS: NewAuctionQueue
 constructs:
-  NewAuctionItemQueue:
+  NewAuctionQueue:
     type: queue
     worker:
-      handler: src/handlers/createAuction.handler
+      handler: src/handlers/saveAuction.handler # Lambda which processes queue entries
   
 functions:
-  newAuction:
-    handler:  src/handlers/newAuction.handler
+  # subscribed to NewAuctionTopic
+  logAuction:
+    handler: src/handlers/logAuction.handler
+    events:
+      - sns:
+          arn: !Ref NewAuctionTopic
+          topicName: NewAuction
+  # Basic POST endpoint that publishes NewAuctionTopic
+  createAuction:
+    handler:  src/handlers/createAuction.handler
     environment:
-      QUEUE_URL: ${construct:NewAuctionItemQueue.queueUrl}
+      TOPIC_ARN: !Ref NewAuctionTopic
     events:
       - http:
           method: POST
           path: auction
+  # oWo whats this?
   dontClick:
     handler: src/handlers/dontClick.handler
     events:
