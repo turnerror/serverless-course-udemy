@@ -1,17 +1,20 @@
-# Codingly.io: Base Serverless Framework Template
 
-https://codingly.io
-
-## What's included
-* Folder structure used consistently across our projects.
-* [serverless-pseudo-parameters plugin](https://www.npmjs.com/package/serverless-pseudo-parameters): Allows you to take advantage of CloudFormation Pseudo Parameters.
-* [serverless-bundle plugin](https://www.npmjs.com/package/serverless-pseudo-parameters): Bundler based on the serverless-webpack plugin - requires zero configuration and fully compatible with ES6/ES7 features.
 
 ## Getting started
-```
-sls create --name YOUR_PROJECT_NAME --template-url https://github.com/codingly-io/sls-base
-cd YOUR_PROJECT_NAME
-npm install
-```
+`npm install`
+// AWS - cli installed and configured for the correct IAM user.
+`sls deploy --verbose`
 
-You are ready to go!
+## Endpoints
+
+```
+POST /auction   
+body: JSON
+{
+  "title": "Enter my title here"
+}
+```
+This endpoint in turn should publish a `NewAuction` SNS topic.
+The `logAuction` lambda is subscribed and will then log the message.
+Also NewAuctionQueue (an SQS queue) is also subscribed and should have the topic added to it.
+Then the `saveAuction` lambda should pull from the `NewAuctionQueue` and insert a row into dynamodb.
